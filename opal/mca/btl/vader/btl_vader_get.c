@@ -49,6 +49,7 @@ int mca_btl_vader_get_xpmem (mca_btl_base_module_t *btl, mca_btl_base_endpoint_t
     (void) local_handle;
     (void) remote_handle;
 
+    fprintf(stderr, "XPMEM GET: %zu\n", size);
     reg = vader_get_registation (endpoint, (void *)(intptr_t) remote_address, size, 0, &rem_ptr);
     if (OPAL_UNLIKELY(NULL == rem_ptr)) {
         return OPAL_ERROR;
@@ -71,6 +72,10 @@ int mca_btl_vader_get_cma (mca_btl_base_module_t *btl, mca_btl_base_endpoint_t *
                            mca_btl_base_registration_handle_t *remote_handle, size_t size, int flags,
                            int order, mca_btl_base_rdma_completion_fn_t cbfunc, void *cbcontext, void *cbdata)
 {
+    struct timeval tv;
+    struct timeval start_tv;
+
+    gettimeofday(&start_tv, NULL);
     struct iovec src_iov = {.iov_base = (void *)(intptr_t) remote_address, .iov_len = size};
     struct iovec dst_iov = {.iov_base = local_address, .iov_len = size};
     ssize_t ret;
@@ -103,7 +108,12 @@ int mca_btl_vader_get_cma (mca_btl_base_module_t *btl, mca_btl_base_endpoint_t *
         dst_iov.iov_base = (void *)((char *)dst_iov.iov_base + ret);
         dst_iov.iov_len -= ret;
     } while (0 < src_iov.iov_len);
+    double elapsed = 0.0;
 
+    gettimeofday(&tv, NULL);
+    elapsed = (tv.tv_sec - start_tv.tv_sec) +
+        (tv.tv_usec - start_tv.tv_usec) / 1000000.0;
+    fprintf(stderr, "CMA GET: %zu takes %f\n", size, elapsed);
     /* always call the callback function */
     cbfunc (btl, endpoint, local_address, local_handle, cbcontext, cbdata, OPAL_SUCCESS);
 
@@ -120,6 +130,7 @@ int mca_btl_vader_get_knem (mca_btl_base_module_t *btl, mca_btl_base_endpoint_t 
     struct knem_cmd_param_iovec recv_iovec;
     struct knem_cmd_inline_copy icopy;
 
+    fprintf(stderr, "KNEM GET: %zu\n", size);
     /* Fill in the ioctl data fields.  There's no async completion, so
        we don't need to worry about getting a slot, etc. */
     recv_iovec.base = (uintptr_t) local_address;
